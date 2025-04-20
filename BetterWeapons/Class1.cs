@@ -1,11 +1,12 @@
-﻿using System.Reflection;
-using HarmonyLib;
+﻿using HarmonyLib;
 using Il2CppScheduleOne.DevUtilities;
+using Il2CppScheduleOne.Dialogue;
 using Il2CppScheduleOne.Equipping;
+using Il2CppScheduleOne.ItemFramework;
 using Il2CppScheduleOne.UI;
-using Il2CppSystem.Runtime.Serialization.Formatters.Binary;
 using MelonLoader;
 using UnityEngine;
+using ModManagerPhoneApp;
 
 [assembly: MelonInfo(typeof(BetterWeapons.EntryPoint), "BetterWeapons", "1.0.1", "_peron")]
 
@@ -13,150 +14,192 @@ namespace BetterWeapons
 {
     public class EntryPoint : MelonMod
     {
+        public static MelonPreferences_Category Maincategory;
+        public static MelonPreferences_Category _1911category;
+        public static MelonPreferences_Category Revolvercategory;
+        public static MelonPreferences_Entry<int> Damage;
+        public static MelonPreferences_Entry<bool> SuperAccuracy;
+        public static MelonPreferences_Entry<bool> NoCockPit;
+        public static MelonPreferences_Entry<bool> InfiniteAmmo;
+        public static MelonPreferences_Entry<int> _1911Price;
+        public static MelonPreferences_Entry<int> RevolverPrice;
+        public static MelonPreferences_Entry<int> _1911AmmoCapacity;
+        public static MelonPreferences_Entry<int> RevolverAmmoCapacity;
+        public static MelonPreferences_Entry<int> _1911MagazineCapacity;
+        public static MelonPreferences_Entry<int> RevolverMagazineCapacity;
+        public static MelonPreferences_Entry<int> _1911MagazinePrice;
+        public static MelonPreferences_Entry<int> RevolverMagazinePrice;
+            
         public override void OnInitializeMelon()
         {
-            Config.OnLoad();
-        }
-        
-    }
-
-    public class Config
-    {
-        public static int Damage = 120;
-        public static bool SuperAccuracy = true;
-        public static bool NoCockPit = true;
-        public static bool InfiniteAmmo = true;
-        
-
-        public static string createConfig()
-        {
-            string directoryName = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            string text = Path.Combine(Path.Combine(directoryName, "BetterWeapons"));
-            MelonLogger.Msg("BetterWeapons Config File Path: " + text);
-            bool flag = !Directory.Exists(text);
-            if (flag)
-            {
-                Directory.CreateDirectory(text);
-            }
-            string path = Path.Combine(text, "config.ini");
-            bool flag2 = !File.Exists(path);
-            if (flag2)
-            {
-                string[] contents = new string[]
-                {
-                    "# Better weapons mod configuration",
-                    "#How many damage should guns do? Default 60 (An npc has 100HP)",
-                    "Damage=60",
-                    "#If this is true, bullet will not spread",
-                    "SuperAccuracy=false",
-                    "#This will get you infinite ammo",
-                    "InfiniteAmmo=False",
-                    "#If this is true you wont need to cock the revolver",
-                    "NoCockPit=True",
-                };
-                File.WriteAllLines(path, contents);
-                MelonLogger.Msg("Config file created with default values.");
-            }
-
-            return path;
-        }
-
-        public static void OnLoad()
-        {
+            _1911category = MelonPreferences.CreateCategory("BetterWeapons_1911", "Better Weapons - 1911");
+            _1911Price = _1911category.CreateEntry("BetterWeapons_1911_price", 2500, "Price for 1911 pistol");
+            _1911AmmoCapacity = _1911category.CreateEntry("BetterWeapons_1911_ammo_capacity", 7, "Ammo capacity for 1911");
+            _1911MagazineCapacity = _1911category.CreateEntry("BetterWeapons_1911_magazine_capacity", 7, "Magazine capacity for 1911");
+            _1911MagazinePrice = _1911category.CreateEntry("BetterWeapons_1911_magazine_price", 20, "Price for 1911 magazines");
             
-            bool lastupdated = false;
-            string[] array = File.ReadAllLines(createConfig());
-            foreach (string text2 in array)
+            Revolvercategory = MelonPreferences.CreateCategory("BetterWeapons_Revolver", "Better Weapons - Revolver");
+            RevolverPrice = Revolvercategory.CreateEntry("BetterWeapons_revolver_price", 1000, "Price for Revolver");
+            RevolverAmmoCapacity = Revolvercategory.CreateEntry("BetterWeapons_revolver_ammo_capacity", 6, "Ammo capacity for Revolver");
+            RevolverMagazineCapacity = Revolvercategory.CreateEntry("BetterWeapons_revolver_magazine_capacity", 6, "Magazine capacity for Revolver");
+            RevolverMagazinePrice = Revolvercategory.CreateEntry("BetterWeapons_revolver_magazine_price", 10, "Price for Revolver magazines");
+            
+            Maincategory = MelonPreferences.CreateCategory("BetterWeapons", "Better Weapons");
+            Damage = Maincategory.CreateEntry("BetterWeapons_1_damage", 60, "Weapon damage (For all weapons)");
+            SuperAccuracy = Maincategory.CreateEntry("BetterWeapons_super_accuracy", false, "Improved weapon accuracy");
+            NoCockPit = Maincategory.CreateEntry("BetterWeapons_no_cockpit", false, "Disable cockpit");
+            InfiniteAmmo = Maincategory.CreateEntry("BetterWeapons_infinite_ammo", false, "Unlimited ammunition");
+            _1911category.SetFilePath("UserData/BetterWeapons.cfg");
+            Revolvercategory.SetFilePath("UserData/BetterWeapons.cfg");
+            Maincategory.SetFilePath("UserData/BetterWeapons.cfg");
+            _1911category.LoadFromFile();
+            Revolvercategory.LoadFromFile();
+            Maincategory.LoadFromFile();
+            try
             {
-                bool flag3 = string.IsNullOrWhiteSpace(text2) || text2.TrimStart().StartsWith("#");
-                if (!flag3)
+                ModSettingsEvents.OnPreferencesSaved += LoadAllCategories;
+                LoggerInstance.Msg("Successfully subscribed to Mod Manager save event.");
+            }
+            catch (Exception ex)
+            {
+                LoggerInstance.Warning($"Could not subscribe to Mod Manager event (Mod Manager may not be installed/compatible): {ex.Message}");
+            }
+        }
+        
+        public static void LoadAllCategories()
+        {
+            foreach (MelonPreferences_Category category in MelonPreferences.Categories)
+            {
+                category.LoadFromFile();
+            }
+        }
+
+
+        [HarmonyPatch(typeof(Il2CppScheduleOne.Registry))]
+        class LoadItems
+        {
+            [HarmonyPatch(nameof(Il2CppScheduleOne.Registry.Awake))]
+            [HarmonyPostfix]
+            static void PostRegistry()
+            {
+                //1911
+                GameObject m1911Object = Resources.FindObjectsOfTypeAll<GameObject>().FirstOrDefault(obj => obj.name == "M1911_Equippable" && obj.transform.parent == null);
+                if (m1911Object != null)
                 {
-                    string[] array3 = text2.Split('=', StringSplitOptions.None);
-                    bool flag4 = array3.Length < 2;
-                    if (!flag4)
+                    Equippable_RangedWeapon weaponComponent = m1911Object.GetComponent<Equippable_RangedWeapon>();
+
+                    if (weaponComponent != null)
                     {
-                        string text3 = array3[0].Trim();
-                        string text4 = array3[1].Trim();
-                        if (text3.Equals("Damage", StringComparison.CurrentCultureIgnoreCase))
+                        weaponComponent.MagazineSize = (int)_1911AmmoCapacity.BoxedValue;
+                        StorableItemDefinition magazineDefinition = weaponComponent.Magazine;
+                        if (magazineDefinition != null)
                         {
-                            Damage = int.Parse(text4);
-                        }
-                        else if (text3.Equals("SuperAccuracy", StringComparison.OrdinalIgnoreCase))
-                        {
-                            SuperAccuracy = bool.Parse(text4);
-                        } else if (text3.Equals("InfiniteAmmo", StringComparison.OrdinalIgnoreCase))
-                        {
-                            InfiniteAmmo = bool.Parse(text4);
-                        }
-                        else if (text3.Equals("NoCockPit", StringComparison.OrdinalIgnoreCase))
-                        {
-                            NoCockPit = bool.Parse(text4);
+                            IntegerItemDefinition intMagazineDefinition =
+                                magazineDefinition.TryCast<IntegerItemDefinition>();
+                            if (intMagazineDefinition != null)
+                            {
+                                intMagazineDefinition.DefaultValue = (int)_1911MagazineCapacity.BoxedValue;
+                            }
                         }
                     }
                 }
-                
-            }
-        }
-    }
-        
-    [HarmonyPatch(typeof(Il2CppScheduleOne.PlayerScripts.Player))]
-    [HarmonyPatch("PlayerLoaded")]
-    class ConfigLoad
-    {
-        [HarmonyPostfix]
-        static void PostfixPlayerLoaded(Il2CppScheduleOne.PlayerScripts.Player __instance)
-        {
-            Config.OnLoad();
-        }
-    }
-    
 
-    [HarmonyPatch(typeof(Il2CppScheduleOne.Equipping.Equippable_RangedWeapon))]
-    public class EquippableRangedWeapons
-    {
-        [HarmonyPatch(nameof(Il2CppScheduleOne.Equipping.Equippable_RangedWeapon.Fire))]
-        [HarmonyPrefix]
-        public static bool FirePrefix(Il2CppScheduleOne.Equipping.Equippable_RangedWeapon __instance)
-        {
-            
-            __instance.Damage = Config.Damage;
-            __instance.MustBeCocked = !Config.NoCockPit;
-            if (Config.SuperAccuracy)
-            {
-                __instance.MaxSpread = 0.2f;
-                __instance.MinSpread = 0.1f;
-            }
 
-            
-            return true;
-        }
-
-        [HarmonyPatch(nameof(Il2CppScheduleOne.Equipping.Equippable_RangedWeapon.Equip))]
-        [HarmonyPostfix]
-        public static void EquipPostFix(Il2CppScheduleOne.Equipping.Equippable_RangedWeapon __instance)
-        {
-            Singleton<HUD>.Instance.SetCrosshairVisible(true);
-        }
-
-        [HarmonyPatch(nameof(Equippable_RangedWeapon.Update))]
-        [HarmonyPostfix]
-        public static void Update(Equippable_RangedWeapon __instance)
-        {
-            Singleton<HUD>.Instance.SetCrosshairVisible(true);
-            if (Config.InfiniteAmmo)
-            {
-                if (__instance.weaponItem.Value <=2)
+                //revolver
+                GameObject revolverObject = Resources.FindObjectsOfTypeAll<GameObject>().FirstOrDefault(obj => obj.name == "Revolver_Equippable" && obj.transform.parent == null);
+                if (revolverObject != null)
                 {
-                    __instance.weaponItem.Value++;
+                    Equippable_RangedWeapon weaponComponent = revolverObject.GetComponent<Equippable_RangedWeapon>();
+                    if (weaponComponent != null)
+                    {
+                        weaponComponent.MagazineSize = (int)RevolverAmmoCapacity.BoxedValue;
+                        StorableItemDefinition magazineDefinition = weaponComponent.Magazine;
+                        if (magazineDefinition != null)
+                        {
+                            IntegerItemDefinition intMagazineDefinition =
+                                magazineDefinition.TryCast<IntegerItemDefinition>();
+                            if (intMagazineDefinition != null)
+                            {
+                                intMagazineDefinition.DefaultValue = (int)RevolverMagazineCapacity.BoxedValue;
+                            }
+                        }
+                    }
+                }
+
+            }
+        }
+
+        [HarmonyPatch(typeof(Il2CppScheduleOne.Dialogue.DialogueController_ArmsDealer))]
+        class ArmDealer
+        {
+            [HarmonyPatch(nameof(Il2CppScheduleOne.Dialogue.DialogueController_ArmsDealer.Awake))]
+            [HarmonyPostfix]
+            public static void DealerPrefix(Il2CppScheduleOne.Dialogue.DialogueController_ArmsDealer __instance)
+            {
+                Dictionary<string, int> weaponPriceMap = new Dictionary<string, int>
+                {
+                    { "M1911", (int)_1911Price.BoxedValue },
+                    { "Revolver", (int)RevolverPrice.BoxedValue },
+                    { "Revolver Ammo", (int)RevolverMagazinePrice.BoxedValue },
+                    { "M1911 Magazine", (int)_1911MagazinePrice.BoxedValue }
+                };
+
+                foreach (DialogueController_ArmsDealer.WeaponOption weapon in __instance.allWeapons)
+                {
+                    if (weaponPriceMap.ContainsKey(weapon.Name))
+                    {
+                        weapon.Price = weaponPriceMap[weapon.Name];
+                    }
                 }
             }
-            //__instance.Update();
-            //__instance.UpdateInput();
-            //__instance.UpdateAnim();
-            //__instance.TimeSinceFire += Time.deltaTime;
-            //return false;
         }
+
+        
+
+
+        [HarmonyPatch(typeof(Il2CppScheduleOne.Equipping.Equippable_RangedWeapon))]
+        public class EquippableRangedWeapons
+        {
+            [HarmonyPatch(nameof(Il2CppScheduleOne.Equipping.Equippable_RangedWeapon.Fire))]
+            [HarmonyPrefix]
+            public static bool FirePrefix(Il2CppScheduleOne.Equipping.Equippable_RangedWeapon __instance)
+            {
+
+                __instance.Damage = (int)Damage.BoxedValue;
+                if (__instance.MustBeCocked)
+                {
+                    __instance.MustBeCocked = !((bool)NoCockPit.BoxedValue);
+                }
+
+                if ((bool)SuperAccuracy.BoxedValue)
+                {
+                    __instance.MaxSpread = 0.2f;
+                    __instance.MinSpread = 0.1f;
+                }
+
+                return true;
+            }
+
+            [HarmonyPatch(nameof(Il2CppScheduleOne.Equipping.Equippable_RangedWeapon.Equip))]
+            [HarmonyPostfix]
+            public static void EquipPostFix(Il2CppScheduleOne.Equipping.Equippable_RangedWeapon __instance)
+            {
+                Singleton<HUD>.Instance.SetCrosshairVisible(true);
+            }
+
+            [HarmonyPatch(nameof(Equippable_RangedWeapon.Update))]
+            [HarmonyPostfix]
+            public static void Update(Equippable_RangedWeapon __instance)
+            {
+                Singleton<HUD>.Instance.SetCrosshairVisible(true);
+                if ((bool)InfiniteAmmo.BoxedValue)
+                {
+                    if (__instance.weaponItem.Value <= 2)
+                    {
+                        __instance.weaponItem.Value++;
+                    }
+                }
+            }
     }
-    
-    
+}
 }
